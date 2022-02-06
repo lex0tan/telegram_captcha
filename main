@@ -1,0 +1,94 @@
+
+from imports import *
+
+client = TelegramClient("sesso", api_id, api_hash).start(bot_token=bot_token)
+
+client.start()
+print ("startato")
+
+def create_expression(n:int):
+    n -= 1; expressions = []
+    for i in range(n):
+    
+        false_first_n = random.randint(0, 50)
+        false_second_n = random.randint(0, 50)
+        false_first_n = str(false_first_n)
+        false_second_n = str(false_second_n)
+        expression =  (false_first_n + " " + false_second_n) 
+        expressions.append(expression)
+    
+    real_first_n = random.randint(0,50)
+    real_second_n = random.randint(0,50)
+    real_first_n = str(real_first_n)
+    real_second_n = str(real_second_n)    
+    
+    real_expression = real_first_n + " " +real_second_n
+    return expressions, real_expression
+
+
+@client.on(events.ChatAction())
+async def captcha(event):
+    if event.user_joined:
+        chat_id = event.action_message.peer_id.channel_id
+        usr_id = event.action_message.from_id.user_id
+        await client.edit_permissions(chat_id, usr_id, send_messages = False, send_polls = False, invite_users = False)
+        user = await client(GetFullUserRequest(usr_id))
+        name = user.user.first_name
+        last_name = user.user.last_name
+        if not last_name:
+            name = name    
+        if last_name:
+            name = name + " " +last_name
+        
+        
+        number = 4
+        expressions, real_expression = create_expression(number)
+        print (expressions)
+        print (real_expression)
+        choice = random.randint(1, 4) 
+        total_markups = []
+        real_markup =[Button.inline(f"{real_expression}", data=f"{usr_id}")]
+        
+        for expression in expressions:
+            index = 0
+            false_markups =[Button.inline(f"{expression}", data= "False")]
+            total_markups.append(false_markups)
+            index += 1
+
+        total_markups.insert(choice, real_markup)
+        result = real_expression.rsplit(" ")
+        result = (int(result[0]) + int(result[1]))
+        if len(name) > 25:
+            name = name[:25]
+        else:
+            name = name
+            
+        await event.respond(f"Hi **{name}** [`{usr_id}`] wich one of these expression results {result}?", buttons =total_markups) 
+        
+    if event.user_added:
+        print ("diomerda")
+        users = await event.get_users()
+        print (users)
+        
+@client.on(events.CallbackQuery())
+async def callback(event):
+    print (event.stringify())
+    chat_id = event.query.peer.channel_id
+    usr_id = event.original_update.user_id
+    await client.edit_permissions(chat_id, usr_id, send_messages = False, send_polls = False, invite_users = False)
+    data = event.original_update.data; data = str(data)
+    data = re.search("'(.+?)'", data).group(1)
+    usr_id = str(usr_id)
+    
+    if data == "False" or data != usr_id:
+        print ("someone is trolling")
+
+    elif usr_id == data:
+        try:
+            await event.respond(f"Captcha resolved✅")
+            usr_id = int(usr_id)
+            await client.edit_permissions(entity =chat_id, user = usr_id, send_messages = True, send_polls = True, invite_users = True)
+        except Exception as e:        
+            print(e)
+
+client.run_until_disconnected()  
